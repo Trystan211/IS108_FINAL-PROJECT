@@ -1,19 +1,18 @@
-First Create a virtual environment best practice
-
+First Create a virtual environment (best practice)
 A virtual environment keeps your project's libraries separate from other Python projects on your laptop.
+Download the whole folder and then open cmd and type this:
 
 python -m venv venv
 
 This creates a venv folder inside IS108_Project. You only do this once.
 
-6 Activate the virtual environment
+Activate the virtual environment
 You must activate it every time you open a new Command Prompt window:
 
 venv\Scripts\activate
 
 When it's active, your prompt will show (venv) at the start of the line. That means you're good.
-
-If you get a "cannot be loaded" error, first 
+If you get a "cannot be loaded" error, first, 
 
 run: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned in PowerShell, then try again in cmd.
 
