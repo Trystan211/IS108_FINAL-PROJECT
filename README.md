@@ -1,4 +1,6 @@
-First Create a virtual environment (best practice)
+Download the IS108-FINALPROJECT Folder then:
+
+Open the CMD within the IS108-FINALPROJECT and create a virtual environment (best practice)
 A virtual environment keeps your project's libraries separate from other Python projects on your laptop.
 Download the whole folder and then open cmd and type this:
 
