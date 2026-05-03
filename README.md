@@ -50,4 +50,5 @@ Every time you come back to work on it
 You don't need to reinstall anything. Open the cmd of the folder and just do these two steps each session:
 
 venv\Scripts\activate
+
 streamlit run app.py
