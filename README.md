@@ -1,3 +1,7 @@
+Tristan Rhyl C. Penaso
+Airah Nichole Montillano
+Kylle Mae Mercado
+
 Download the IS108-FINALPROJECT Folder then:
 
 Open the CMD within the IS108-FINALPROJECT and create a virtual environment
