@@ -6,7 +6,8 @@ Kylle Mae Mercado
 
 Course: IS 108 – Intelligence System Final Project SY 2025-2026 
 
-1. Business Problem Addressed 
+Business Problem Addressed:
+   
 This project addresses the critical business problem of Customer Churn Prediction. In the 
 telecommunications sector, customer retention is vastly more cost-effective than customer 
 acquisition. The goal of this predictive modeling application is to identify patterns and predict 
