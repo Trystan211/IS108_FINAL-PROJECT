@@ -6,7 +6,7 @@ This is the core engine of the application sir. It:
   1. Instantiates KNN, SVM, and ANN with the sidebar hyperparameters
   2. Optionally runs GridSearchCV to auto-tune those hyperparameters
   3. Fits all three models on the training set
-  4. Evaluates them on the test set (accuracy, precision, recall, F1)
+  4. Evaluates them on the test set sir (accuracy, precision, recall, F1)
   5. Runs 5-fold cross-validation for a more robust accuracy estimate
   6. Renders the metrics table, confusion matrices, and best-model analysis
   7. Persists trained models to st.session_state so Phase 4 can use them
@@ -173,87 +173,25 @@ def render_phase3(
 
             status.success("All three models trained successfully!")
 
-            # -- 5-Fold Cross-Validation ---------------------------------------
+            # -- 5-Fold Cross-Validation (compute scores only, render later) ----
             # cross_val_score splits X_train_sel into 5 folds, trains on 4, tests
             # on 1 - repeated 5 times with different folds. The mean score is a
             # more reliable accuracy estimate than a single train/test split because
             # it averages over 5 different "test sets" from the training data sir.
             # delta shows += std, indicating how consistent performance is across folds.
-            st.subheader("Cross-Validation Results (5-Fold)")
-            st.caption(
-                "5-fold CV splits the training data into 5 parts, trains on 4 and tests "
-                "on 1 — repeated 5 times. The mean score is a more reliable performance "
-                "estimate than a single split."
-            )
-            cv_cols = st.columns(3)
-            for idx_cv, (cv_name, (cv_model, _)) in enumerate(trained.items()):
+            cv_data = {}
+            for cv_name, (cv_model, _) in trained.items():
                 cv_scores = cross_val_score(cv_model, X_train_sel, y_train, cv=5, scoring="accuracy")
-                cv_cols[idx_cv].metric(
-                    f"{cv_name} CV Accuracy",
-                    f"{cv_scores.mean()*100:.2f}%",
-                    delta=f"± {cv_scores.std()*100:.2f}%",      # Lower std = more consistent
-                )
-            st.divider()
+                cv_data[cv_name] = (cv_scores.mean(), cv_scores.std())
 
-            # -- Persist to session_state --------------------------------------
-            # Streamlit re-runs the entire script on every user interaction.
-            # Saving these to session_state means Phase 4 can still access them
-            # after the re-run without needing to retrain from scratch sir.
-            st.session_state["trained"]           = trained
-            st.session_state["selected_features"] = selected_features
-            st.session_state["X_raw"]             = X_raw
-            st.session_state["scaler"]            = scaler
-            st.session_state["target_classes"]    = target_classes
-
-            # -- Model Persistence/ Download Trained Models (joblib) ------------
-            # Saves all three trained models + scaler to disk so the session
-            # can be reloaded without retraining. Users can download the file.
-            import joblib, io, os
-            save_payload = {
-                "trained":           {n: m for n, (m, _) in trained.items()},
-                "selected_features": selected_features,
-                "scaler":            scaler,
-                "target_classes":    target_classes,
-            }
-            model_buffer = io.BytesIO()
-            joblib.dump(save_payload, model_buffer)
-            model_buffer.seek(0)             # Reset buffer position to the start before reading
-            st.download_button(
-                label="Download Trained Models (.joblib)",
-                data=model_buffer,
-                file_name="bi_app_trained_models.joblib",
-                mime="application/octet-stream",
-                help="Download all three trained models + scaler. "
-                     "Re-upload to skip retraining in future sessions.",
-            )
-
-            # -- Metrics Comparison Table --------------------------------------
-            # highlight_max (green) and highlight_min (red) are applied per column
-            # so it's immediately obvious which model wins each metric category sir.
-            st.subheader("Model Performance Comparison")
-            st.caption("Green = best per column  |  Red = worst  |  Measured on the test set.")
-            metrics_df = pd.DataFrame(results).set_index("Model")
-            st.dataframe(
-                metrics_df.style
-                    .highlight_max(axis=0, color="#c6efce")
-                    .highlight_min(axis=0, color="#ffc7ce")
-                    .format("{:.4f}"),
-                use_container_width=True,
-            )
-
-            # Identify the best model by accuracy AND by F1 separately.
-            # For imbalanced datasets the F1 winner is the more business-relevant choice sir.
-            best    = metrics_df["Accuracy"].idxmax()
-            best_f1 = metrics_df["F1-Score (Macro)"].idxmax()
-            bacc    = metrics_df.loc[best, "Accuracy"]  # noqa: F841
-
-            # -- Best Model Analysis Card --------------------------------------
+            # -- Build best-model analysis text (computed here, rendered later) --
             # Dynamically builds a plain-English explanation of WHY the F1 winner
             # is recommended for this business problem sir.
             # The explanation adjusts based on which model actually won.
-            f1_vals = {n: metrics_df.loc[n, "F1-Score (Macro)"] for n in metrics_df.index}
-            rc_vals = {n: metrics_df.loc[n, "Recall (Macro)"]   for n in metrics_df.index}
-
+            metrics_df_temp = pd.DataFrame(results).set_index("Model")
+            best_f1         = metrics_df_temp["F1-Score (Macro)"].idxmax()
+            f1_vals         = {n: metrics_df_temp.loc[n, "F1-Score (Macro)"] for n in metrics_df_temp.index}
+            rc_vals         = {n: metrics_df_temp.loc[n, "Recall (Macro)"]   for n in metrics_df_temp.index}
             model_descriptions = {
                 "KNN": "K-Nearest Neighbors (distance-based, non-parametric)",
                 "SVM": "Support Vector Machine (margin-maximising, RBF kernel)",
@@ -290,52 +228,26 @@ def render_phase3(
                     "customers in feature space tend to share the same churn outcome."
                 )
 
-            st.markdown(
-                f"""
-                <div class="analysis-card">
-                    <h4>Model Analysis: Why {business_best} is the Best Choice for This Business Problem</h4>
-                    <p>{business_reason}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.divider()
+            # -- Persist to session_state -----------------------------------------
+            # Streamlit re-runs the entire script on every user interaction.
+            # Saving ALL render data here means _render_results() can redraw
+            # everything on every re-run (including Phase 4 Predict clicks)
+            # without needing to retrain from scratch sir.
+            st.session_state["trained"]           = trained
+            st.session_state["results"]           = results
+            st.session_state["cv_data"]           = cv_data
+            st.session_state["y_test"]            = y_test
+            st.session_state["business_best"]     = business_best
+            st.session_state["business_reason"]   = business_reason
+            st.session_state["selected_features"] = selected_features
+            st.session_state["X_raw"]             = X_raw
+            st.session_state["scaler"]            = scaler
+            st.session_state["target_classes"]    = target_classes
 
-            # -- Confusion Matrices --------------------------------------------
-            # Three subplots side by side — one per model.
-            # plot_confusion_matrix() is defined in utils/metrics.py sir.
-            # labels=sorted(y_test.unique()) ensures both axes use the same
-            # class order across all three plots for fair visual comparison sir.
-            st.subheader("Confusion Matrices")
-            st.caption("Rows = True Labels  |  Columns = Predicted Labels  |  Darker diagonal = more correct predictions.")
-            labels = sorted(y_test.unique())
-            fig_cm, axes = plt.subplots(1, 3, figsize=(18, 5), constrained_layout=True)
-            fig_cm.suptitle("Confusion Matrices – KNN vs SVM vs ANN", fontsize=15, fontweight="bold")
-            for ax, (name, (_, y_pred)) in zip(axes, trained.items()):
-                plot_confusion_matrix(ax, y_test, y_pred, name, labels)
-            st.pyplot(fig_cm)
-            plt.close(fig_cm)           # Free memory after rendering
-            st.divider()
-
-            # -- Per-model expanders --------------------------------------------
-            # Each expander shows the model's full hyperparameter dict
-            # (via model.get_params()) and its individual metric cards sir.
-            # Collapsed by default to keep the page clean.
-            st.subheader("Detailed Per-Model Breakdown")
-            for name, (model, y_pred) in trained.items():
-                with st.expander(f" {name} – Full Details"):
-                    col_params, col_metrics = st.columns(2)
-                    with col_params:
-                        st.write("**Model Parameters:**")
-                        st.json(model.get_params())         # All hyperparameters as JSON
-                    with col_metrics:
-                        m = compute_metrics(name, y_test, y_pred)
-                        mc1, mc2 = st.columns(2)
-                        mc1.metric("Accuracy",          f"{m['Accuracy']*100:.2f}%")
-                        mc1.metric("Precision (Macro)", f"{m['Precision (Macro)']*100:.2f}%")
-                        mc2.metric("Recall (Macro)",    f"{m['Recall (Macro)']*100:.2f}%")
-                        mc2.metric("F1-Score (Macro)",  f"{m['F1-Score (Macro)']*100:.2f}%")
-            st.divider()
+            # -- Model Persistence/ Download Trained Models (joblib) ------------
+            # Saves all three trained models + scaler to disk so the session
+            # can be reloaded without retraining. Users can download the file sir.
+            import joblib, io, os
 
         except Exception as e:
             # Catch-all for any unexpected crash during training.
@@ -350,3 +262,119 @@ def render_phase3(
                 f"- Make sure your dataset has more than 20 rows.\n"
                 f"- Select at least one feature in Phase 2.5."
             )
+
+    # -- RESULTS — rendered on EVERY re-run as long as session_state has data --
+    # This block is OUTSIDE `if train_btn:` intentionally.
+    # Whether the user just trained, clicked Predict in Phase 4, moved a slider,
+    # or did anything else — results are always re-rendered from session_state
+    # so Phase 3 never disappears while the user interacts with Phase 4 sir.
+    if "trained" not in st.session_state:
+        return
+
+    trained         = st.session_state["trained"]
+    results         = st.session_state["results"]
+    cv_data         = st.session_state["cv_data"]
+    y_test_cached   = st.session_state["y_test"]
+    business_best   = st.session_state["business_best"]
+    business_reason = st.session_state["business_reason"]
+
+    # -- Cross-Validation Results -------------------------------------------
+    st.subheader("Cross-Validation Results (5-Fold)")
+    st.caption(
+        "5-fold CV splits the training data into 5 parts, trains on 4 and tests "
+        "on 1 — repeated 5 times. The mean score is a more reliable performance "
+        "estimate than a single split."
+    )
+    cv_cols = st.columns(3)
+    for idx_cv, (cv_name, (mean, std)) in enumerate(cv_data.items()):
+        cv_cols[idx_cv].metric(
+            f"{cv_name} CV Accuracy",
+            f"{mean*100:.2f}%",
+            delta=f"± {std*100:.2f}%",     # Lower std = more consistent across folds
+        )
+    st.divider()
+
+    # -- Download Trained Models (joblib) -----------------------------------
+    # Saves all three trained models + scaler to disk so the session
+    # can be reloaded without retraining. Users can download the file sir.
+    import joblib, io
+    save_payload = {
+        "trained":           {n: m for n, (m, _) in trained.items()},
+        "selected_features": st.session_state["selected_features"],
+        "scaler":            st.session_state["scaler"],
+        "target_classes":    st.session_state["target_classes"],
+    }
+    model_buffer = io.BytesIO()
+    joblib.dump(save_payload, model_buffer)
+    model_buffer.seek(0)    # Reset buffer position to the start before reading
+    st.download_button(
+        label="Download Trained Models (.joblib)",
+        data=model_buffer,
+        file_name="bi_app_trained_models.joblib",
+        mime="application/octet-stream",
+        help="Download all three trained models + scaler. "
+             "Re-upload to skip retraining in future sessions.",
+    )
+
+    # -- Metrics Comparison Table -------------------------------------------
+    # highlight_max (green) and highlight_min (red) are applied per column
+    # so it's immediately obvious which model wins each metric category sir.
+    st.subheader("Model Performance Comparison")
+    st.caption("🟢 Green = best per column  |  🔴 Red = worst  |  Measured on the test set.")
+    metrics_df = pd.DataFrame(results).set_index("Model")
+    st.dataframe(
+        metrics_df.style
+            .highlight_max(axis=0, color="#2E7D32")   # Dark green — readable on dark theme
+            .highlight_min(axis=0, color="#B71C1C")   # Dark red   — readable on dark theme
+            .set_properties(**{"color": "#FFFFFF", "font-weight": "500"})  # White text throughout
+            .format("{:.4f}"),
+        use_container_width=True,
+    )
+
+    # -- Best Model Analysis Card -------------------------------------------
+    st.markdown(
+        f"""
+        <div class="analysis-card">
+            <h4>Model Analysis: Why {business_best} is the Best Choice for This Business Problem</h4>
+            <p>{business_reason}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+    # -- Confusion Matrices -------------------------------------------------
+    # Three subplots side by side — one per model.
+    # plot_confusion_matrix() is defined in utils/metrics.py sir.
+    # labels=sorted(y_test.unique()) ensures both axes use the same
+    # class order across all three plots for fair visual comparison sir.
+    st.subheader("Confusion Matrices")
+    st.caption("Rows = True Labels  |  Columns = Predicted Labels  |  Darker diagonal = more correct predictions.")
+    labels = sorted(y_test_cached.unique())
+    fig_cm, axes = plt.subplots(1, 3, figsize=(18, 5), constrained_layout=True)
+    fig_cm.suptitle("Confusion Matrices – KNN vs SVM vs ANN", fontsize=15, fontweight="bold")
+    for ax, (name, (_, y_pred)) in zip(axes, trained.items()):
+        plot_confusion_matrix(ax, y_test_cached, y_pred, name, labels)
+    st.pyplot(fig_cm)
+    plt.close(fig_cm)   # Free memory after rendering
+    st.divider()
+
+    # -- Per-model expanders ------------------------------------------------
+    # Each expander shows the model's full hyperparameter dict
+    # (via model.get_params()) and its individual metric cards sir.
+    # Collapsed by default to keep the page clean.
+    st.subheader("Detailed Per-Model Breakdown")
+    for name, (model, y_pred) in trained.items():
+        with st.expander(f"📌 {name} – Full Details"):
+            col_params, col_metrics = st.columns(2)
+            with col_params:
+                st.write("**Model Parameters:**")
+                st.json(model.get_params())     # All hyperparameters as JSON
+            with col_metrics:
+                m = compute_metrics(name, y_test_cached, y_pred)
+                mc1, mc2 = st.columns(2)
+                mc1.metric("Accuracy",          f"{m['Accuracy']*100:.2f}%")
+                mc1.metric("Precision (Macro)", f"{m['Precision (Macro)']*100:.2f}%")
+                mc2.metric("Recall (Macro)",    f"{m['Recall (Macro)']*100:.2f}%")
+                mc2.metric("F1-Score (Macro)",  f"{m['F1-Score (Macro)']*100:.2f}%")
+    st.divider()
