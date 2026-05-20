@@ -151,6 +151,18 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 hr { border-color: #E3F2FD !important; }
 
 /* --------------------------------------------------------
+   METRICS DATAFRAME TEXT
+   Forces white text inside the st.dataframe() metrics table.
+   Without this, Streamlit's dark theme shows near-invisible
+   light-gray text on the pandas Styler highlight cells.
+   -------------------------------------------------------- */
+[data-testid="stDataFrame"] td,
+[data-testid="stDataFrame"] th {
+    color: #FFFFFF !important;
+    font-weight: 500 !important;
+}
+
+/* --------------------------------------------------------
    BEST MODEL ANALYSIS CARD
    The green card rendered after training that explains WHY
    one model is recommended for the specific business problem.
