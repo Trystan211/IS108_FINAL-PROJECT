@@ -4,6 +4,17 @@ Airah Nichole Montillano
 
 Kylle Mae Mercado
 
+Course: IS 108 – Intelligence System Final Project SY 2025-2026 
+
+1. Business Problem Addressed 
+This project addresses the critical business problem of Customer Churn Prediction. In the 
+telecommunications sector, customer retention is vastly more cost-effective than customer 
+acquisition. The goal of this predictive modeling application is to identify patterns and predict 
+which customers are at high risk of canceling their subscriptions. By accurately classifying 
+these at-risk customers, the business can proactively deploy targeted retention strategies, 
+such as promotional discounts or personalized customer service, thereby reducing revenue 
+loss.
+
 Download the IS108-FINALPROJECT Folder then:
 
 Open the CMD within the IS108-FINALPROJECT and create a virtual environment
