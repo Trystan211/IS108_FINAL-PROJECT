@@ -5,6 +5,7 @@ Airah Nichole Montillano
 Kylle Mae Mercado
 
 Course: IS 108 – Intelligence System Final Project SY 2025-2026 
+
 Section: LM1
 
 Business Problem Addressed:
